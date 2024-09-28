@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Timetable Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        label {
+            font-weight: bold;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1em;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>College Timetable Generator</h1>
+
+    <!-- Form Section -->
+    <h2>Input Details</h2>
+    <div class="form-group">
+        <label for="numTeachers">Number of Teachers</label>
+        <input type="number" id="numTeachers" min="1" placeholder="Enter number of teachers" required>
+    </div>
+    
+    <div id="teacherDetails"></div>
+    
+    <div class="form-group">
+        <label for="numDays">Number of Days (e.g., 5 for Monday to Friday)</label>
+        <input type="number" id="numDays" min="1" max="7" placeholder="Enter number of days" required>
+    </div>
+
+    <div class="form-group">
+        <label for="numSlots">Number of Time Slots per Day</label>
+        <input type="number" id="numSlots" min="1" placeholder="Enter number of time slots" required>
+    </div>
+
+    <button onclick="setupTeacherInputs()">Add Teacher Details</button>
+    <button onclick="generateTimetable()">Generate Timetable</button>
+
+    <div id="timetable"></div>
+    <button id="downloadBtn" style="display:none;" onclick="downloadWord()">Download as Word</button>
+</div>
+
+<script>
+    let teachers = [];
+
+    // Dynamically setup input fields for teachers
+    function setupTeacherInputs() {
+        const numTeachers = document.getElementById('numTeachers').value;
+        const teacherDetailsDiv = document.getElementById('teacherDetails');
+        teacherDetailsDiv.innerHTML = '';
+        
+        for (let i = 0; i < numTeachers; i++) {
+            teacherDetailsDiv.innerHTML += `
+                <div class="form-group">
+                    <label for="teacherName${i}">Teacher ${i + 1} Name:</label>
+                    <input type="text" id="teacherName${i}" placeholder="Enter teacher's name">
+                </div>
+                <div class="form-group">
+                    <label for="teacherSubjects${i}">Teacher ${i + 1} Subjects:</label>
+                    <input type="text" id="teacherSubjects${i}" placeholder="Enter subjects (comma-separated)">
+                </div>
+                <div class="form-group">
+                    <label for="teacherAvailability${i}">Teacher ${i + 1} Available Days (comma-separated, e.g. 1,2,3):</label>
+                    <input type="text" id="teacherAvailability${i}" placeholder="Enter available days">
+                </div>
+            `;
+        }
+    }
+
+    // Generate Timetable Logic
+    function generateTimetable() {
+        const numDays = parseInt(document.getElementById('numDays').value);
+        const numSlots = parseInt(document.getElementById('numSlots').value);
+        const numTeachers = document.getElementById('numTeachers').value;
+        
+        teachers = [];
+
+        // Collect teacher information
+        for (let i = 0; i < numTeachers; i++) {
+            const name = document.getElementById(`teacherName${i}`).value;
+            const subjects = document.getElementById(`teacherSubjects${i}`).value.split(',');
+            const availability = document.getElementById(`teacherAvailability${i}`).value.split(',').map(day => parseInt(day));
+            
+            teachers.push({ name, subjects, availability });
+        }
+
+        // Initialize timetable array
+        const timetable = Array(numDays).fill().map(() => Array(numSlots).fill('Free Slot'));
+
+        // Allocate subjects to time slots
+        let teacherIndex = 0;
+        for (let day = 0; day < numDays; day++) {
+            for (let slot = 0; slot < numSlots; slot++) {
+                const currentTeacher = teachers[teacherIndex];
+
+                // Check if the teacher is available on the current day
+                if (currentTeacher.availability.includes(day + 1)) {
+                    const subject = currentTeacher.subjects[slot % currentTeacher.subjects.length];
+                    timetable[day][slot] = `${subject} (${currentTeacher.name})`;
+                }
+                
+                // Cycle through teachers
+                teacherIndex = (teacherIndex + 1) % teachers.length;
+            }
+        }
+
+        displayTimetable(timetable, numDays, numSlots);
+    }
+
+    // Display the timetable in table format
+    function displayTimetable(timetable, numDays, numSlots) {
+        const timetableDiv = document.getElementById('timetable');
+        let html = '<h2>Generated Timetable</h2><table><thead><tr><th>Slot/Day</th>';
+
+        for (let day = 1; day <= numDays; day++) {
+            html += `<th>Day ${day}</th>`;
+        }
+        html += '</tr></thead><tbody>';
+
+        for (let slot = 0; slot < numSlots; slot++) {
+            html += `<tr><td>Slot ${slot + 1}</td>`;
+            for (let day = 0; day < numDays; day++) {
+                html += `<td>${timetable[day][slot]}</td>`;
+            }
+            html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        timetableDiv.innerHTML = html;
+
+        document.getElementById('downloadBtn').style.display = 'block';
+    }
+
+    // Function to download the timetable as a Word document
+    function downloadWord() {
+        const content = document.getElementById('timetable').innerHTML;
+        const header = `<h1>College Timetable</h1>`;
+        const html = header + content;
+        
+        const blob = new Blob(['\ufeff', html], {
+            type: 'application/msword'
+        });
+
+        const url = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(html);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = 'timetable.doc';
+
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+</script>
+
+</body>
+</html>
